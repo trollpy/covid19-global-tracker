@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>COVID-19 Tracker</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" href="{{ url_for('static', filename='images/favicon.svg') }}">
+    
+    <!-- CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    
+    <!-- Chart.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.1/chart.min.js"></script>
+    
+    <!-- Leaflet for maps -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.8.0/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.8.0/dist/leaflet.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header Section -->
+        <header class="header">
+            <div class="logo-container">
+                <h1 class="logo">COVID-19 Tracker</h1>
+            </div>
+            <nav class="main-nav">
+                <ul>
+                    <li><button class="nav-btn active" data-section="dashboard">Dashboard</button></li>
+                    <li><button class="nav-btn" data-section="search">Country Search</button></li>
+                    <li><button class="nav-btn" data-section="compare">Compare</button></li>
+                    <li><button class="nav-btn" data-section="vaccination">Vaccination</button></li>
+                    <li><button class="nav-btn" data-section="risk">Risk Assessment</button></li>
+                </ul>
+            </nav>
+            
+        </header>
+        
+        <!-- Global Stats Section -->
+        <section class="global-stats">
+            <h2>Global Overview</h2>
+            <div class="stats-container">
+                <div class="stat-card confirmed">
+                    <h3>Confirmed Cases</h3>
+                    <p class="stat-number" id="global-cases">Loading...</p>
+                    <p class="stat-date" id="global-date">Last updated: ...</p>
+                </div>
+                <div class="stat-card deaths">
+                    <h3>Total Deaths</h3>
+                    <p class="stat-number" id="global-deaths">Loading...</p>
+                    <p class="stat-info">Case fatality rate: <span id="global-fatality-rate">...</span></p>
+                </div>
+                <div class="stat-card recovered">
+                    <h3>Recovered</h3>
+                    <p class="stat-number" id="global-recovered">Loading...</p>
+                    <p class="stat-info">Recovery rate: <span id="global-recovery-rate">...</span></p>
+                </div>
+                <div class="stat-card active">
+                    <h3>Active Cases</h3>
+                    <p class="stat-number" id="global-active">Loading...</p>
+                    <p class="stat-info">Percentage active: <span id="global-active-percent">...</span></p>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Dashboard Section -->
+            <section id="dashboard" class="content-section active">
+                <div class="section-header">
+                    <h2>COVID-19 Dashboard</h2>
+                    <div class="date-range">
+                        <label for="date-range-selector">Time Period:</label>
+                        <select id="date-range-selector">
+                            <option value="7">Last 7 days</option>
+                            <option value="14">Last 14 days</option>
+                            <option value="30" selected>Last 30 days</option>
+                            <option value="90">Last 3 months</option>
+                            <option value="all">All time</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="dashboard-grid">
+                    <div class="dashboard-item world-map">
+                        <h3>World COVID-19 Map</h3>
+                        <div id="map-container"></div>
+                        <div class="map-legend">
+                            <div class="legend-item">
+                                <span class="color-box" style="background-color: #FFEEEE;"></span>
+                                <span>< 10,000 cases</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="color-box" style="background-color: #FFD4D4;"></span>
+                                <span>10,000 - 100,000</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="color-box" style="background-color: #FFAAAA;"></span>
+                                <span>100,000 - 500,000</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="color-box" style="background-color: #FF7777;"></span>
+                                <span>500,000 - 1,000,000</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="color-box" style="background-color: #FF0000;"></span>
+                                <span>> 1,000,000 cases</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="dashboard-item trends-chart">
+                        <h3>Global Trends</h3>
+                        <canvas id="global-trends-chart"></canvas>
+                    </div>
+                    
+                    <div class="dashboard-item top-countries">
+                        <h3>Top Affected Countries</h3>
+                        <div class="table-container">
+                            <table id="top-countries-table">
+                                <thead>
+                                    <tr>
+                                        <th>Country</th>
+                                        <th>Cases</th>
+                                        <th>Deaths</th>
+                                        <th>Recovered</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td colspan="4" class="loading-message">Loading data...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <div class="dashboard-item vaccination-progress">
+                        <h3>Vaccination Progress</h3>
+                        <canvas id="vaccination-chart"></canvas>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Country Search Section -->
+            <section id="search" class="content-section">
+                <div class="section-header">
+                    <h2>Country Search</h2>
+                    <div class="search-container">
+                        <input type="text" id="country-search" placeholder="Search for a country..." aria-label="Search for a country">
+                        <div id="search-suggestions" class="search-suggestions"></div>
+                    </div>
+                </div>
+                
+                <div id="country-data" class="country-data">
+                    <div class="empty-state">
+                        <img src="{{ url_for('static', filename='images/search.svg') }}" alt="Search icon" class="empty-state-icon">
+                        <p>Search for a country to view detailed COVID-19 information</p>
+                    </div>
+                </div>
+                
+                <div id="country-detail" class="country-detail hidden">
+                    <header class="country-header">
+                        <div class="country-flag">
+                            <img id="country-flag-img" src="" alt="">
+                        </div>
+                        <div class="country-title">
+                            <h3 id="country-name"></h3>
+                            <p id="country-population"></p>
+                        </div>
+                        <div class="export-options">
+                            <button id="export-csv" class="export-btn">
+                                <span class="icon">📊</span> Export CSV
+                            </button>
+                            <button id="export-pdf" class="export-btn">
+                                <span class="icon">📄</span> Export PDF
+                            </button>
+                        </div>
+                    </header>
+                    
+                    <div class="country-stats">
+                        <div class="stat-card confirmed">
+                            <h4>Confirmed Cases</h4>
+                            <p class="stat-number" id="country-cases"></p>
+                            <p class="stat-info">Per million: <span id="country-cases-per-million"></span></p>
+                        </div>
+                        <div class="stat-card deaths">
+                            <h4>Deaths</h4>
+                            <p class="stat-number" id="country-deaths"></p>
+                            <p class="stat-info">Per million: <span id="country-deaths-per-million"></span></p>
+                        </div>
+                        <div class="stat-card recovered">
+                            <h4>Recovered</h4>
+                            <p class="stat-number" id="country-recovered"></p>
+                            <p class="stat-info">Recovery rate: <span id="country-recovery-rate"></span></p>
+                        </div>
+                        <div class="stat-card active">
+                            <h4>Active Cases</h4>
+                            <p class="stat-number" id="country-active"></p>
+                            <p class="stat-info">Percentage active: <span id="country-active-percent"></span></p>
+                        </div>
+                        <div class="stat-card tests">
+                            <h4>Tests Conducted</h4>
+                            <p class="stat-number" id="country-tests"></p>
+                            <p class="stat-info">Per million: <span id="country-tests-per-million"></span></p>
+                        </div>
+                        <div class="stat-card risk">
+                            <h4>Risk Level</h4>
+                            <p class="stat-number" id="country-risk-level"></p>
+                            <p class="stat-info">Risk score: <span id="country-risk-score"></span></p>
+                        </div>
+                    </div>
+                    
+                    <div class="country-charts">
+                        <div class="chart-container">
+                            <h4>Historical Trends</h4>
+                            <canvas id="country-trends-chart"></canvas>
+                        </div>
+                        <div class="chart-container">
+                            <h4>Daily New Cases</h4>
+                            <canvas id="country-daily-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Compare Section -->
+            <section id="compare" class="content-section">
+                <div class="section-header">
+                    <h2>Compare Countries</h2>
+                    <div class="countries-selection">
+                        <div class="country-select-container">
+                            <select id="country-select-1" class="country-select">
+                                <option value="">Select country</option>
+                            </select>
+                            <select id="country-select-2" class="country-select">
+                                <option value="">Select country</option>
+                            </select>
+                            <button id="add-country" class="add-country-btn">+ Add</button>
+                        </div>
+                        <div id="selected-countries" class="selected-countries"></div>
+                    </div>
+                    <div class="comparison-controls">
+                        <label for="comparison-metric">Compare by:</label>
+                        <select id="comparison-metric">
+                            <option value="cases">Total Cases</option>
+                            <option value="deaths">Total Deaths</option>
+                            <option value="recovered">Total Recovered</option>
+                            <option value="active">Active Cases</option>
+                            <option value="casesPerOneMillion">Cases Per Million</option>
+                            <option value="deathsPerOneMillion">Deaths Per Million</option>
+                            <option value="testsPerOneMillion">Tests Per Million</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="comparison-view">
+                    <div class="comparison-chart-container">
+                        <canvas id="comparison-chart"></canvas>
+                    </div>
+                    
+                    <div class="comparison-table-container">
+                        <table id="comparison-table">
+                            <thead>
+                                <tr>
+                                    <th>Country</th>
+                                    <th>Total Cases</th>
+                                    <th>Cases/1M</th>
+                                    <th>Deaths</th>
+                                    <th>Deaths/1M</th>
+                                    <th>Recovered</th>
+                                    <th>Active</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td colspan="7" class="loading-message">Select countries to compare</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Vaccination Section -->
+            <section id="vaccination" class="content-section">
+                <div class="section-header">
+                    <h2>Vaccination Tracker</h2>
+                    <div class="search-container">
+                        <input type="text" id="vaccine-country-search" placeholder="Search for a country..." aria-label="Search for a country to view vaccination data">
+                        <div id="vaccine-search-suggestions" class="search-suggestions"></div>
+                    </div>
+                </div>
+                
+                <div class="vaccination-dashboard">
+                    <div class="global-vaccination-stats">
+                        <h3>Global Vaccination Progress</h3>
+                        <div class="vaccine-progress">
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="global-vaccine-progress" style="width: 0%"></div>
+                            </div>
+                            <p class="vaccine-stats">
+                                <span id="global-vaccine-percent">0%</span> of world population vaccinated
+                            </p>
+                        </div>
+                        
+                        <div class="vaccination-chart-container">
+                            <canvas id="global-vaccination-chart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <div id="country-vaccination-data" class="country-vaccination-data">
+                        <div class="empty-state">
+                            <img src="{{ url_for('static', filename='images/vaccine.png') }}" alt="Vaccine icon" class="empty-state-icon">
+                            <p>Search for a country to view detailed vaccination information</p>
+                        </div>
+                    </div>
+                    
+                    <div id="country-vaccine-detail" class="country-vaccine-detail hidden">
+                        <header class="country-header">
+                            <div class="country-flag">
+                                <img id="vaccine-country-flag-img" src="" alt="">
+                            </div>
+                            <div class="country-title">
+                                <h3 id="vaccine-country-name"></h3>
+                                <p id="vaccine-country-population"></p>
+                            </div>
+                        </header>
+                        
+                        <div class="vaccine-stats-grid">
+                            <div class="vaccine-stat-card">
+                                <h4>Total Vaccinations</h4>
+                                <p class="stat-number" id="country-total-vaccinations"></p>
+                            </div>
+                            <div class="vaccine-stat-card">
+                                <h4>People Vaccinated</h4>
+                                <p class="stat-number" id="country-people-vaccinated"></p>
+                                <p class="stat-info">
+                                    <span id="country-people-vaccinated-percent"></span> of population
+                                </p>
+                            </div>
+                            <div class="vaccine-stat-card">
+                                <h4>Fully Vaccinated</h4>
+                                <p class="stat-number" id="country-fully-vaccinated"></p>
+                                <p class="stat-info">
+                                    <span id="country-fully-vaccinated-percent"></span> of population
+                                </p>
+                            </div>
+                            <div class="vaccine-stat-card">
+                                <h4>Doses per 100 People</h4>
+                                <p class="stat-number" id="country-doses-per-hundred"></p>
+                            </div>
+                        </div>
+                        
+                        <div class="vaccination-timeline">
+                            <h4>Vaccination Timeline</h4>
+                            <canvas id="country-vaccination-timeline"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Risk Assessment Section -->
+            <section id="risk" class="content-section">
+                <div class="section-header">
+                    <h2>Risk Assessment</h2>
+                    <div class="search-container">
+                        <input type="text" id="risk-country-search" placeholder="Search for a country..." aria-label="Search for a country to view risk assessment">
+                        <div id="risk-search-suggestions" class="search-suggestions"></div>
+                    </div>
+                </div>
+                
+                <div id="risk-assessment-container" class="risk-assessment-container">
+                    <div class="empty-state">
+                        <img src="{{ url_for('static', filename='images/risk.png') }}" alt="Risk icon" class="empty-state-icon">
+                        <p>Search for a country to view risk assessment</p>
+                    </div>
+                </div>
+                
+                <div id="risk-detail" class="risk-detail hidden">
+                    <header class="country-header">
+                        <div class="country-flag">
+                            <img id="risk-country-flag-img" src="" alt="">
+                        </div>
+                        <div class="country-title">
+                            <h3 id="risk-country-name"></h3>
+                        </div>
+                    </header>
+                    
+                    <div class="risk-level-indicator">
+                        <h4>Current Risk Level</h4>
+                        <div class="risk-gauge">
+                            <div class="risk-meter">
+                                <div class="risk-pointer" id="risk-pointer"></div>
+                            </div>
+                            <div class="risk-labels">
+                                <span>Very Low</span>
+                                <span>Low</span>
+                                <span>Moderate</span>
+                                <span>High</span>
+                                <span>Very High</span>
+                            </div>
+                        </div>
+                        <p class="risk-level" id="risk-level-text"></p>
+                    </div>
+                    
+                    <div class="risk-factors">
+                        <h4>Risk Factors</h4>
+                        <div class="factor-grid">
+                            <div class="factor-card">
+                                <h5>Active Cases per Million</h5>
+                                <p class="factor-value" id="active-per-million"></p>
+                                <div class="factor-bar-container">
+                                    <div class="factor-bar" id="active-per-million-bar"></div>
+                                </div>
+                            </div>
+                            <div class="factor-card">
+                                <h5>Case Fatality Rate</h5>
+                                <p class="factor-value" id="fatality-rate"></p>
+                                <div class="factor-bar-container">
+                                    <div class="factor-bar" id="fatality-rate-bar"></div>
+                                </div>
+                            </div>
+                            <div class="factor-card">
+                                <h5>Testing Rate</h5>
+                                <p class="factor-value" id="testing-rate"></p>
+                                <div class="factor-bar-container">
+                                    <div class="factor-bar" id="testing-rate-bar"></div>
+                                </div>
+                            </div>
+                            <div class="factor-card">
+                                <h5>Vaccination Coverage</h5>
+                                <p class="factor-value" id="vaccination-coverage"></p>
+                                <div class="factor-bar-container">
+                                    <div class="factor-bar" id="vaccination-coverage-bar"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="risk-recommendations">
+                        <h4>Recommendations</h4>
+                        <div id="recommendations-container" class="recommendations-container">
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+        
+        <!-- Footer Section -->
+        <footer class="footer">
+            <div class="footer-content">
+                <p>COVID-19 Tracker &copy; 2025 | Data source: <a href="https://disease.sh/" target="_blank" rel="noopener">disease.sh</a></p>
+                <p class="last-updated">Last updated: <span id="last-updated-time">Loading...</span></p>
+                <p>  Tshivhenga Thompho Sheriff</p>
+            </div>
+        </footer>
+    </div>
+    
+    <!-- JavaScript -->
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/search.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/compare.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/vaccination.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/risk.js') }}"></script>
+</body>
+</html>
